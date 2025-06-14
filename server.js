@@ -118,40 +118,46 @@ io.on('connection', (socket) => {
   });
 
   // مدیریت تماس‌های صوتی (بدون callback)
-  socket.on('offer', (data) => {
+socket.on('offer', (data) => {
     try {
-      if (userSession.callAttempts > 5) {
-        throw new Error('تعداد تماس‌های شما به حد مجاز رسیده است');
-      }
-
-      if (userSession.currentCall) {
-        throw new Error('شما در حال حاضر در یک تماس هستید');
-      }
-
-      userSession.callAttempts++;
-      userSession.lastCallTime = Date.now();
-      userSession.currentCall = data.target;
-
-      socket.to(data.target).emit('offer', {
-        sender: socket.id,
-        offer: data.offer,
-        username: socket.username,
-        timestamp: Date.now()
-      });
-
-      // تایم‌اوت تماس
-      setTimeout(() => {
-        if (userSession.currentCall === data.target) {
-          socket.emit('callTimeout');
-          resetCallSession(socket.id);
+        // محدودیت تماس‌های متوالی
+        const now = Date.now();
+        if (now - userSession.lastCallTime < 30000 && userSession.callAttempts > 2) {
+            throw new Error('لطفاً 30 ثانیه صبر کنید قبل از تماس بعدی');
         }
-      }, 15000); // 15 ثانیه
+
+        if (userSession.callAttempts > 5 && now - userSession.lastCallTime < 60000) {
+            throw new Error('تعداد تماس‌های شما به حد مجاز رسیده است');
+        }
+
+        if (userSession.currentCall) {
+            throw new Error('شما در حال حاضر در یک تماس هستید');
+        }
+
+        userSession.callAttempts++;
+        userSession.lastCallTime = now;
+        userSession.currentCall = data.target;
+
+        socket.to(data.target).emit('offer', {
+            sender: socket.id,
+            offer: data.offer,
+            username: socket.username,
+            timestamp: now
+        });
+
+        // تایم‌اوت تماس
+        userSession.callTimeout = setTimeout(() => {
+            if (userSession.currentCall === data.target) {
+                socket.emit('callTimeout');
+                resetCallSession(socket.id);
+            }
+        }, 15000); // 15 ثانیه
 
     } catch (err) {
-      console.error('خطا در ارسال offer:', err);
-      socket.emit('callError', { error: err.message });
+        console.error('خطا در ارسال offer:', err);
+        socket.emit('callError', { error: err.message });
     }
-  });
+});
 
   // پاسخ به تماس (بدون callback)
   socket.on('answer', (data) => {
