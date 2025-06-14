@@ -220,24 +220,44 @@
         // تنظیمات پیشرفته WebRTC با سرورهای TURN/STUN
         const rtcConfig = {
             iceServers: [
-                // سرورهای STUN گوگل (همیشه رایگان و پایدار)
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:stun1.l.google.com:19302" },
-                { urls: "stun:stun2.l.google.com:19302" },
+                // سرور STUN
+                {
+                    urls: "stun:fr-turn8.xirsys.com"
+                },
 
-                // سرور TURN رایگان و پایدار (مترد)
+                // سرورهای TURN با پروتکل UDP
                 {
-                    urls: "turn:a.relay.metered.ca:80",
-                    username: "83ad446a72d25fb7b18b1d63", // کاربری رایگان
-                    credential: "BQfSx3R4bVYy0ZzP",       // رمز رایگان
+                    urls: [
+                        "turn:fr-turn8.xirsys.com:80?transport=udp",
+                        "turn:fr-turn8.xirsys.com:3478?transport=udp"
+                    ],
+                    username: "MrOhAvTWaOpvzEVAQtpNM2_FLp2f8lOTUIO1J3OgQpc1T5ltcx1echvBBUAXI_XMAAAAAGhNwJBzYWhhbmRpODE=",
+                    credential: "1f2ed986-494e-11f0-9eef-7a77891d9cf5"
                 },
+
+                // سرورهای TURN با پروتکل TCP
                 {
-                    urls: "turn:a.relay.metered.ca:443",
-                    username: "83ad446a72d25fb7b18b1d63",
-                    credential: "BQfSx3R4bVYy0ZzP",
+                    urls: [
+                        "turn:fr-turn8.xirsys.com:80?transport=tcp",
+                        "turn:fr-turn8.xirsys.com:3478?transport=tcp"
+                    ],
+                    username: "MrOhAvTWaOpvzEVAQtpNM2_FLp2f8lOTUIO1J3OgQpc1T5ltcx1echvBBUAXI_XMAAAAAGhNwJBzYWhhbmRpODE=",
+                    credential: "1f2ed986-494e-11f0-9eef-7a77891d9cf5"
                 },
+
+                // سرورهای TURNS (TURN امن با TLS)
+                {
+                    urls: [
+                        "turns:fr-turn8.xirsys.com:443?transport=tcp",
+                        "turns:fr-turn8.xirsys.com:5349?transport=tcp"
+                    ],
+                    username: "MrOhAvTWaOpvzEVAQtpNM2_FLp2f8lOTUIO1J3OgQpc1T5ltcx1echvBBUAXI_XMAAAAAGhNwJBzYWhhbmRpODE=",
+                    credential: "1f2ed986-494e-11f0-9eef-7a77891d9cf5"
+                }
             ],
-            iceTransportPolicy: "all", // یا "relay" برای اجبار به استفاده از TURN
+            iceTransportPolicy: "all",  // یا "relay" برای اجبار به استفاده از TURN
+            bundlePolicy: "max-bundle",
+            rtcpMuxPolicy: "require"
         };
 
         // اتصال Socket.io
