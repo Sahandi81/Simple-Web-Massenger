@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ورود به چت</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 300px;
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h2 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>ورود به چت</h2>
+        <form onsubmit="joinChannel(event)">
+            <input type="text" id="username" placeholder="نام کاربری" required>
+            <input type="text" id="channel" placeholder="شماره چنل (مثلاً 11)" required>
+            <button type="submit">ورود</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        
+        function joinChannel(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const channel = document.getElementById('channel').value.trim();
+            
+            if (username && channel) {
+                socket.emit('joinChannel', { username, channel });
+                window.location.href = `/chat.html?username=${encodeURIComponent(username)}&channel=${encodeURIComponent(channel)}`;
+            }
+        }
+    </script>
+</body>
+</html>

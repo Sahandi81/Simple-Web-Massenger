@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>چت آنلاین</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f1f1f1;
+        }
+
+        .message .username {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .message .text {
+            margin-top: 5px;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #send-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin-right: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 70%;
+            clear: both;
+        }
+
+        .my-message {
+            float: right;
+            background-color: #dcf8c6;
+            margin-left: 30%;
+        }
+
+        .other-message {
+            float: left;
+            background-color: #f1f1f1;
+            margin-right: 30%;
+        }
+
+        .message .username {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .message .text {
+            word-wrap: break-word;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: #e5ddd5;
+            background-image: url('https://web.whatsapp.com/img/bg-chat-tile-light_a4be512e7195b6b733d9110b408f075d.png');
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>چت آنلاین</h2>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input">
+            <input type="text" id="message-input" placeholder="پیام خود را بنویسید...">
+            <button id="send-button">ارسال</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+
+        const socket = io();
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('username') || 'کاربر ناشناس';
+        const channel = urlParams.get('channel') || 'عمومی';
+
+        // نمایش اطلاعات چنل
+        document.querySelector('.chat-header h2').textContent = `چت آنلاین - چنل ${channel}`;
+
+        // اتصال به چنل
+        socket.emit('joinChannel', { username, channel });
+
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const chatMessages = document.getElementById('chat-messages');
+
+        function addMessage(username, text, isMyMessage) {
+            const messageElement = document.createElement('div');
+            messageElement.className = isMyMessage ? 'message my-message' : 'message other-message';
+
+            messageElement.innerHTML = `
+        <div class="username">${username}</div>
+        <div class="text">${text}</div>
+    `;
+
+            chatMessages.appendChild(messageElement);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            requestAnimationFrame(() => {
+                chatMessages.scrollTo({
+                    top: chatMessages.scrollHeight,
+                    behavior: 'smooth'
+                });
+            });
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                socket.emit('sendMessage', message);
+                messageInput.value = '';
+            }
+        }
+
+        socket.on('message', (data) => {
+            const isMyMessage = data.username === username;
+            addMessage(data.username, data.text, isMyMessage);
+        });
+
+        // اسکرول به پایین هنگام بارگذاری و اتصال
+        window.addEventListener('DOMContentLoaded', scrollToBottom);
+        socket.on('connect', scrollToBottom);
+
+
+
+
+
+    </script>
+</body>
+
+</html>
