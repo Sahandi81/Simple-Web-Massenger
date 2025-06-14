@@ -167,7 +167,7 @@
         <div class="chat-input">
             <input type="text" id="message-input" placeholder="پیام خود را بنویسید...">
             <button id="send-button">ارسال</button>
-
+            
             <div class="call-controls">
                 <button id="start-call" title="شروع تماس">📞</button>
                 <button id="end-call" title="پایان تماس">✖️</button>
@@ -217,12 +217,21 @@
             pendingCandidates: []
         };
 
-        // تنظیمات WebRTC
+        // تنظیمات پیشرفته WebRTC با سرورهای TURN/STUN
         const rtcConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { 
+                    urls: 'turn:numb.viagenie.ca',
+                    username: 'webrtc@live.com',
+                    credential: 'muazkh'
+                }
+            ],
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
         };
 
         // اتصال Socket.io
@@ -265,12 +274,9 @@
 
                 // قطع اتصالات
                 if (callState.peerConnection) {
-                    // حذف همه event listenerها
                     callState.peerConnection.onicecandidate = null;
                     callState.peerConnection.ontrack = null;
                     callState.peerConnection.onconnectionstatechange = null;
-
-                    // بستن اتصال
                     callState.peerConnection.close();
                     callState.peerConnection = null;
                 }
@@ -297,7 +303,7 @@
         // شروع تماس جدید
         async function startNewCall(targetUserId) {
             try {
-                // بررسی مجدد وضعیت تماس
+                // بررسی وضعیت تماس فعلی
                 if (callState.isInCall) {
                     throw new Error('شما در حال حاضر در یک تماس هستید');
                 }
@@ -306,7 +312,7 @@
                 callState.currentCall = targetUserId;
                 updateCallUI();
 
-                // دریافت دسترسی به میکروفون با پیام خطای بهتر
+                // دریافت دسترسی به میکروفون
                 try {
                     callState.localStream = await navigator.mediaDevices.getUserMedia({
                         audio: {
@@ -332,6 +338,7 @@
                 // مدیریت ICE Candidates
                 callState.peerConnection.onicecandidate = (event) => {
                     if (event.candidate && callState.currentCall) {
+                        console.log('ارسال کاندید ICE:', event.candidate);
                         socket.emit('candidate', {
                             target: callState.currentCall,
                             candidate: event.candidate
@@ -342,6 +349,7 @@
                 // دریافت استریم ریموت
                 callState.peerConnection.ontrack = (event) => {
                     if (event.streams && event.streams[0]) {
+                        console.log('دریافت استریم صوتی از طرف مقابل');
                         remoteAudio.srcObject = event.streams[0];
                         remoteAudio.style.display = 'block';
                     }
@@ -356,12 +364,22 @@
                     }
                 };
 
+                // تشخیصی اضافی
+                callState.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                    console.log('وضعیت ICE Connection:', callState.peerConnection.iceConnectionState);
+                });
+
+                callState.peerConnection.addEventListener('icegatheringstatechange', () => {
+                    console.log('وضعیت ICE Gathering:', callState.peerConnection.iceGatheringState);
+                });
+
                 // ایجاد و ارسال Offer
                 const offer = await callState.peerConnection.createOffer({
                     offerToReceiveAudio: true
                 });
                 await callState.peerConnection.setLocalDescription(offer);
 
+                console.log('ارسال Offer به سرور');
                 socket.emit('offer', {
                     target: callState.currentCall,
                     offer: offer
@@ -417,6 +435,7 @@
                 callState.peerConnection.ontrack = (event) => {
                     if (event.streams[0]) {
                         remoteAudio.srcObject = event.streams[0];
+                        remoteAudio.style.display = 'block';
                     }
                 };
 
@@ -424,10 +443,30 @@
                     console.log('وضعیت اتصال:', callState.peerConnection.connectionState);
                 };
 
+                // تشخیصی اضافی
+                callState.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                    console.log('وضعیت ICE Connection:', callState.peerConnection.iceConnectionState);
+                });
+
                 // تنظیم offer دریافتی
                 await callState.peerConnection.setRemoteDescription(
                     new RTCSessionDescription(offer.offer)
                 );
+
+                // پردازش کاندیدهای معلق
+                if (callState.pendingCandidates.length > 0) {
+                    console.log('پردازش کاندیدهای معلق:', callState.pendingCandidates.length);
+                    for (const candidate of callState.pendingCandidates) {
+                        try {
+                            await callState.peerConnection.addIceCandidate(
+                                new RTCIceCandidate(candidate)
+                            );
+                        } catch (error) {
+                            console.error('خطا در اضافه کردن کاندید معلق:', error);
+                        }
+                    }
+                    callState.pendingCandidates = [];
+                }
 
                 // ایجاد و ارسال answer
                 const answer = await callState.peerConnection.createAnswer();
@@ -514,6 +553,7 @@
                     await callState.peerConnection.setRemoteDescription(
                         new RTCSessionDescription(answer.answer)
                     );
+                    console.log('Answer با موفقیت تنظیم شد');
                 } catch (error) {
                     console.error('خطا در تنظیم Answer:', error);
                 }
@@ -523,32 +563,20 @@
         socket.on('candidate', async (candidate) => {
             if (callState.peerConnection && callState.currentCall === candidate.sender) {
                 try {
-                    await callState.peerConnection.addIceCandidate(
-                        new RTCIceCandidate(candidate.candidate)
-                    );
-                } catch (error) {
-                    console.error('خطا در اضافه کردن Candidate:', error);
-                    // ذخیره کاندید برای استفاده بعدی اگر اتصال هنوز آماده نیست
-                    if (error.toString().includes('remoteDescription is null')) {
+                    if (callState.peerConnection.remoteDescription) {
+                        await callState.peerConnection.addIceCandidate(
+                            new RTCIceCandidate(candidate.candidate)
+                        );
+                        console.log('کاندید ICE با موفقیت اضافه شد');
+                    } else {
+                        console.log('ذخیره کاندید برای استفاده بعدی');
                         callState.pendingCandidates.push(candidate.candidate);
                     }
+                } catch (error) {
+                    console.error('خطا در اضافه کردن Candidate:', error);
                 }
             }
         });
-
-        const processPendingCandidates = async () => {
-            while (callState.pendingCandidates.length > 0) {
-                const candidate = callState.pendingCandidates.shift();
-                try {
-                    await callState.peerConnection.addIceCandidate(
-                        new RTCIceCandidate(candidate)
-                    );
-                } catch (error) {
-                    console.error('خطا در پردازش کاندید معلق:', error);
-                }
-            }
-        };
-
 
         socket.on('callRejected', () => {
             alert('تماس شما رد شد');
